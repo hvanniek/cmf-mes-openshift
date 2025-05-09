@@ -15,8 +15,7 @@ all:
           ansible_password: "super-secret-password"
           ansible_connection: winrm
           ansible_winrm_transport: basic
-          #some additional lines for when using non-standard ports
-          # ansible_winrm_port: 30985
-          # ansible_winrm_server_cert_validation: 'ignore'
-          # ansible_winrm_scheme: 'http'
+          ansible_winrm_port: 5985
+          ansible_winrm_server_cert_validation: 'ignore'
+          ansible_winrm_scheme: 'http'
 

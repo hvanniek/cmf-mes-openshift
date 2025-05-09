@@ -22,10 +22,18 @@
         state: present
         template: ../templates/win-sysprep.yml.j2
 
+    - name: Generate a random MAC address and ensure it's unicast
+      ansible.builtin.set_fact:
+        random_mac: "{{ lookup('password', '/dev/null chars=hexdigits length=12') | ansible.utils.hwaddr('unix') }}"
+
+    - name: Ensure the MAC address is unicast
+      ansible.builtin.set_fact:
+        unicast_mac: "{{ random_mac | regex_replace('^(?P<msb>[0-9a-f])(?P<lsb>[13579bdf]):', '\\g<msb>0:', count=1) }}"
+
     - name: "Create actual vm"
       kubernetes.core.k8s:
         state: present
-        template: ../templates/win-server2019.yml.j2  
+        template: ../templates/win-server2019.yml.j2
 
     - name: Wait for VM to be ready
       kubernetes.core.k8s_info:
@@ -37,8 +45,8 @@
       retries: 60
       delay: 10
       until:
-      - deploy_collection_vm.resources[0].status is defined
-      - deploy_collection_vm.resources[0].status.ready is true
+        - deploy_collection_vm.resources[0].status is defined
+        - deploy_collection_vm.resources[0].status.ready is true
 
     - name: Wait for VM IP to be populated
       kubernetes.core.k8s_info:
@@ -49,10 +57,9 @@
       register: deploy_collection_vmi
       retries: 60
       delay: 10
-      until: (deploy_collection_vmi.resources[0].status.interfaces[0]['ipAddress'] | default('')) | length > 0    
+      until: (deploy_collection_vmi.resources[0].status.interfaces[0]['ipAddress'] | default('')) | length > 0
 
     - name: "Create Service"
       kubernetes.core.k8s:
         state: present
         template: ../templates/network/win-services.yml.j2
-
