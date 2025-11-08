@@ -1,4 +1,5 @@
 ---
+# Now let's continue on the windows host
 - name: "Install and configure database for CMF on Windows"
   hosts: windows
   become: false
@@ -16,15 +17,16 @@
       ansible.windows.win_reboot:
       when: res.reboot_required
 
-    - name: create user account for db on windows
-      # Content suggestion provided by Ansible Lightspeed
-      ansible.windows.win_user:
-        name: "{{ db_username }}"
-        password: "{{ db_password }}"
-        groups:
-          - Users
-          - Administrators
-        state: present
+    # - name: create user account for db on windows
+    #   # Content suggestion provided by Ansible Lightspeed
+    #   ansible.windows.win_user:
+    #     name: "{{ db_username }}"
+    #     password: "{{ db_password }}"
+    #     groups:
+    #       - Users
+    #       - Administrators
+    #     state: present
+
     - name: Create a directory if it does not exist
       ansible.windows.win_file:
         path: 'C:\temp\'
@@ -71,8 +73,7 @@
 
 
       - name: Install SQL server on windows
-        ansible.windows.win_shell:
-          cmd: 'C:\temp\SQL2022-SSEI-Eval.exe /Q /v /CONFIGURATIONFILE="C:\temp\Configfile.ini" /IACCEPTSQLSERVERLICENSETERMS /MEDIAPATH="C:\temp"'
+        ansible.windows.win_shell:  'C:\temp\SQL2022-SSEI-Eval.exe /Q /v /CONFIGURATIONFILE="C:\temp\Configfile.ini" /IACCEPTSQLSERVERLICENSETERMS /MEDIAPATH="C:\temp"'
 
   # Change registry ports
       - name: Move named instance registry to set sql server port
@@ -90,35 +91,43 @@
         ansible.windows.win_service:
           name: "SQL Server (ONLINE)"
           state: restarted
-      - name: Firewall rule to allow Database communication
-        community.windows.win_firewall_rule:
-          name: MS SQL
-          localport: 1433
-          action: allow
-          direction: in
-          protocol: tcp
-          state: present
-          enabled: true
-      - name: Firewall rule to allow Database management communication
-        community.windows.win_firewall_rule:
-          name: MS SQL Mgnt
-          localport: 1434
-          action: allow
-          direction: in
-          protocol: UDP
-          state: present
-          enabled: true
 
-      - name: Firewall rule to allow Report Server communication
+      - name: Set Firewall rules to allow Database communication
         community.windows.win_firewall_rule:
-          name: MS SQL Analysis Services
-          localport: 2383
+          name: "{{ item.name }}"
+          localport: "{{ item.port }}"
           action: allow
           direction: in
-          protocol: tcp
+          protocol: "{{ item.protocol }}"
           state: present
-          enabled: true
+          enabled: 
+        loop:
+          - { name: "MS SQL", port: "1433", protocol: "tcp" }
+          - { name: "MS SQL Mgnt", port: "139", protocol: "udp"}
+          - { name: "MS SQL Analysis Services", port: "2383", protocol: "tcp"}
+          - { name: "MS SQL Reporting Services", port: "80, 443", protocol: "tcp" }
+        
+      # - name: Firewall rule to allow Database management communication
+      #   community.windows.win_firewall_rule:
+      #     name: MS SQL Mgnt
+      #     localport: 1434
+      #     action: allow
+      #     direction: in
+      #     protocol: UDP
+      #     state: present
+      #     enabled: true
+
+      # - name: Firewall rule to allow Report Server communication
+      #   community.windows.win_firewall_rule:
+      #     name: MS SQL Analysis Services
+      #     localport: 2383
+      #     action: allow
+      #     direction: in
+      #     protocol: tcp
+      #     state: present
+      #     enabled: true
       when: sql_check.rc == 1
+
 ####### SQL Reporting Services setup 
     - name: Check if SQL Server Reporting Services is already installed
       ansible.windows.win_shell: |
@@ -203,24 +212,35 @@
       #   register: sql_server_install_result
       #   failed_when: sql_server_install_result.rc != 0
       #   changed_when: sql_server_install_result.rc == 0
-      - name: Firewall rule to allow Report Server communication
-        community.windows.win_firewall_rule:
-          name: MS SQL Reporting Services
-          localport: 80,443
-          action: allow
-          direction: in
-          protocol: tcp
-          state: present
-          enabled: true
+      # - name: Firewall rule to allow Report Server communication
+      #   community.windows.win_firewall_rule:
+      #     name: MS SQL Reporting Services
+      #     localport: 80,443
+      #     action: allow
+      #     direction: in
+      #     protocol: tcp
+      #     state: present
+      #     enabled: true
 
       when: ssrs_check.rc == 1
 
+    - name: Install NFS Client feature
+      ansible.windows.win_feature:
+        name: NFS-Client
+        state: present
+      register: nfs_install
+      
+    - name: Reboot if required
+      ansible.windows.win_reboot:
+      when: nfs_install.reboot_required
+
 #  STEPS TO DO
-    # xxCreate cmfsu user
+    # xx Create cmfsu user
     # xx install sql server https://download.microsoft.com/download/4/1/b/41b9a8c3-c2b4-4fcc-a3d5-62feed9e6885/SQL2022-SSEI-Eval.exe?culture=en-us&country=us
     # xx - SSAS: {66F0F7CE-0D19-44CF-8785-31CE14CAE18B}
     # xx fix SQL server instance ports
     # xx install SSRS https://download.microsoft.com/download/1/a/a/1aaa9177-3578-4931-b8f3-373b24f63342/SQLServerReportingServices.exe
     # configure SSRS
     # alter ssrs config to allow user login
+    # install nfs feature
     # mount installation data directory - MOUNT AS SATA!!!!

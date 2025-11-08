@@ -1,7 +1,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: "{{ 'smb-' + cmf_db_server_name }}"
+  name: "{{ cmf_db_server_name + '-smb'}}"
   namespace: "{{ cmf.environment.name }}"
 spec:
   ports:

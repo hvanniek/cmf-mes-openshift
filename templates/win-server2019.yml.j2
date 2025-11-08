@@ -36,7 +36,7 @@ spec:
           resources:
             requests:
               storage: '6Gi'
-  running: true
+  runStrategy: Always
   template:
     metadata:
       annotations:
@@ -49,6 +49,8 @@ spec:
         kubevirt.io/size: 'medium'
         app.kubernetes.io/name: "{{ cmf_db_server_name }}"
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: dell-r730
       architecture: 'amd64'
       domain:
         clock:
@@ -65,6 +67,7 @@ spec:
           cores: 4
           sockets: 1
           threads: 1
+          model: host-passthrough
         devices:
           disks:
             - bootOrder: 2
